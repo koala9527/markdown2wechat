@@ -159,7 +159,6 @@ markdown2wechat/
 
 ```env
 MDNICE_AUTH=Bearer xxx.yyy.zzz      # 必填，从浏览器复制 mdnice 的 Authorization 头
-MDNICE_COOKIE=mdnice_cookie_here   # 可选，必要时补充完整 Cookie
 ```
 
 > `.env` 已加入 `.gitignore`，不会被提交到仓库。
