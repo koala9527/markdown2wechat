@@ -23,10 +23,7 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 # 复制项目文件
-COPY main.py ./
-COPY 1.json ./
-COPY templates/ ./templates/
-COPY static/ ./static/
+COPY . ./   # 复制整个项目目录到容器中
 
 # 创建非root用户（安全最佳实践）
 RUN useradd -m -u 1000 appuser && \
