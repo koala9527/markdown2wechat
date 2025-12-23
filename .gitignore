@@ -33,3 +33,6 @@ uv.lock
 .python-version
 .env
 
+# next
+next/.next/
+next/node_modules/

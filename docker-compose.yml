@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: markdown2wechat
     ports:
-      - "8000:8000"
+      - "8001:8000"
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1

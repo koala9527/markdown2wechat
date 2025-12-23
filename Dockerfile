@@ -22,8 +22,8 @@ COPY requirements.txt ./
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
-# 复制项目文件
-COPY . ./   # 复制整个项目目录到容器中
+# 复制项目文件（复制整个项目目录到容器中）
+COPY . ./
 
 # 创建非root用户（安全最佳实践）
 RUN useradd -m -u 1000 appuser && \
