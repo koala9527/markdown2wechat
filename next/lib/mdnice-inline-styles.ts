@@ -193,18 +193,25 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
   
   // 应用样式规则
   for (const { selector, styles } of indexedRules) {
-    // 跳过伪类和伪元素选择器
-    if (selector.includes('::') || /:[a-z-]+(\([^)]*\))?/.test(selector)) {
-      if (selector.includes('::before') || selector.includes('::after')) {
-        continue;
-      }
-      if (/:(hover|focus|active|visited|link)/.test(selector)) {
-        continue;
-      }
+    // 清理选择器
+    const cleanSelector = selector.trim();
+    if (!cleanSelector) {
+      continue;
     }
     
-    // 处理 #nice 选择器
-    if (selector === '#nice' && !selector.includes(' ')) {
+    // 跳过伪类和伪元素选择器（这些样式不应该应用到元素本身）
+    if (cleanSelector.includes('::') || /:[a-z-]+(\([^)]*\))?/.test(cleanSelector)) {
+      // 所有伪类和伪元素都跳过
+      continue;
+    }
+    
+    // 跳过包含伪类的选择器（如 h1::before, .content::after 等）
+    if (/::before|::after|:hover|:focus|:active|:visited|:link|:first-child|:last-child|:nth-child/.test(cleanSelector)) {
+      continue;
+    }
+    
+    // 处理 #nice 选择器（只处理单独的 #nice，不处理后代选择器）
+    if (cleanSelector === '#nice' && !cleanSelector.includes(' ')) {
       result = result.replace(
         /<section\s+id=["']nice["']([^>]*)>/gi,
         (match, attrs) => {
@@ -271,28 +278,41 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
         if (headingMatch) {
           const headingTag = headingMatch[1];
           // 使用更精确的匹配，确保在对应的 heading 内
-          const regex = new RegExp(`<${headingTag}[^>]*>.*?<span\\s+class=["']content["']([^>]*)>`, 'gis');
-          result = result.replace(regex, (match) => {
-            return match.replace(/<span\s+class=["']content["']([^>]*)>/, (spanMatch, attrs) => {
-              if (attrs.includes('style=')) {
-                return spanMatch.replace(/style=["']([^"']*)["']/, (styleMatch, existingStyle) => {
+          // 匹配 <h1>...<span class="content"> 这种结构
+          const regex = new RegExp(`(<${headingTag}[^>]*>)([\\s\\S]*?)(<span\\s+class=["']content["'])([^>]*)(>)`, 'gi');
+          result = result.replace(regex, (match, hTag, between, spanStart, spanAttrs, spanEnd) => {
+            // 确保 span.content 在对应的 heading 内，且前面没有其他 span.content
+            if (between && !between.includes('</span>')) {
+              if (spanAttrs.includes('style=')) {
+                return hTag + between + spanStart + spanAttrs.replace(/style=["']([^"']*)["']/, (styleMatch, existingStyle) => {
                   return `style="${mergeStyles(existingStyle, styles)}"`;
-                });
+                }) + spanEnd;
               } else {
-                return spanMatch.replace(/>/, ` style="${styles}">`);
+                return hTag + between + spanStart + spanAttrs + ` style="${styles}"` + spanEnd;
               }
-            });
+            }
+            return match;
           });
         }
+      }
+      
+      // 跳过 span.prefix 和 span.suffix 的样式（它们应该只有 display: none）
+      if (finalSelector.includes('.prefix') || finalSelector.includes('.suffix')) {
+        continue;
       }
       
       // 处理其他标签选择器（如 h1, h2, p, ul, ol 等）
       const tagMatch = finalSelector.match(/^([a-z0-9]+)(\s|$|\.|#)/);
       if (tagMatch) {
         const tagName = tagMatch[1];
+        
+        // 跳过 span 标签（prefix/suffix/content 需要特殊处理）
+        if (tagName === 'span') {
+          continue;
+        }
+        
         // 只处理在 #nice 内的元素
         const tagRegex = new RegExp(`<${tagName}([^>]*)>`, 'gi');
-        let lastIndex = 0;
         result = result.replace(tagRegex, (match, attrs, offset) => {
           // 检查是否在 #nice section 内
           const beforeMatch = result.substring(0, offset);
@@ -301,6 +321,17 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
           
           // 如果在 #nice section 内（有开始但没有对应的结束，或者结束在开始之后）
           if (niceStart !== -1 && (niceEnd === -1 || niceEnd < niceStart)) {
+            // 检查是否在 span.prefix 或 span.suffix 内（这些不应该应用样式）
+            const afterMatch = result.substring(offset);
+            const nextSpan = afterMatch.match(/<span[^>]*class=["'](prefix|suffix)["']/);
+            if (nextSpan && offset < result.length) {
+              // 如果后面紧跟着 span.prefix 或 span.suffix，可能是匹配错误，跳过
+              const checkRange = result.substring(Math.max(0, offset - 50), Math.min(result.length, offset + 50));
+              if (checkRange.includes('class="prefix') || checkRange.includes('class="suffix')) {
+                return match;
+              }
+            }
+            
             if (attrs.includes('style=')) {
               return match.replace(/style=["']([^"']*)["']/, (styleMatch, existingStyle) => {
                 return `style="${mergeStyles(existingStyle, styles)}"`;
@@ -328,6 +359,21 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
   
   // 清理双分号
   result = result.replace(/;;+/g, ';');
+  
+  // 确保 span.prefix 和 span.suffix 只有 display: none（移除其他样式）
+  result = result.replace(
+    /<span\s+class=["'](prefix|suffix)["']([^>]*)>/gi,
+    (match, className, attrs) => {
+      // 只保留 display: none
+      return `<span class="${className}" style="display: none;">`;
+    }
+  );
+  
+  // 清理颜色格式：将 rgba(0, 150, 136, 1) 转换为 rgb(0, 150, 136)
+  result = result.replace(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*1\)/g, 'rgb($1, $2, $3)');
+  
+  // 清理多余的样式属性（如 content: unset）
+  result = result.replace(/content:\s*unset;?\s*/gi, '');
   
   return result;
 }
