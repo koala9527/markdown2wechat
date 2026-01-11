@@ -431,5 +431,30 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
   // 清理多余的样式属性（如 content: unset）
   result = result.replace(/content:\s*unset;?\s*/gi, '');
   
+  // 修复错误的样式属性名（如 justify-margin-top, justify-line-height）
+  // 这些错误通常是由于样式合并时的问题导致的
+  result = result.replace(/justify-margin-top/g, 'justify-content: unset; margin-top');
+  result = result.replace(/justify-line-height/g, 'justify-content: unset; line-height');
+  result = result.replace(/justify-content:\s*unset;\s*justify-content:\s*unset/g, 'justify-content: unset');
+  
+  // 修复其他可能的错误属性名（如 margin-justify-content 等）
+  result = result.replace(/([a-z-]+)-([a-z-]+)-([a-z-]+):/g, (match, p1, p2, p3) => {
+    // 检查是否是有效的 CSS 属性名
+    const validProps = ['margin', 'padding', 'border', 'background', 'text', 'font', 'line', 'display', 'justify', 'align', 'flex', 'overflow', 'position', 'transform', 'box-shadow', 'border-radius', 'word-wrap', 'word-break', 'overflow-wrap'];
+    const prop = `${p1}-${p2}-${p3}`;
+    if (validProps.some(v => prop.startsWith(v))) {
+      return match; // 有效的属性名，保留
+    }
+    // 可能是错误的合并，尝试修复
+    // 例如：justify-margin-top -> justify-content: unset; margin-top
+    if (p1 === 'justify' && p2 === 'margin') {
+      return `justify-content: unset; margin-${p3}:`;
+    }
+    if (p1 === 'justify' && p2 === 'line') {
+      return `justify-content: unset; line-${p3}:`;
+    }
+    return match; // 无法修复，保留原样
+  });
+  
   return result;
 }
