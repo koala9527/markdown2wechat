@@ -257,7 +257,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
             if (finalSelector.startsWith('.')) {
               const classVal = finalSelector.substring(1).split(':')[0];
               niceSection.find(`.${classVal}`).each((_, element) => {
-                if (selectorMatchesElement(finalSelector, element, $)) {
+                if ('tagName' in element && selectorMatchesElement(finalSelector, element as Element, $)) {
                   const existingStyle = $(element).attr('style') || '';
                   $(element).attr('style', mergeStyles(existingStyle, styles));
                 }
@@ -284,7 +284,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
                   if (childSelector.startsWith('.')) {
                     const classVal = childSelector.substring(1).split(':')[0];
                     $(parent).find(`.${classVal}`).each((_, child) => {
-                      if (selectorMatchesElement(childSelector, child, $)) {
+                      if ('tagName' in child && selectorMatchesElement(childSelector, child as Element, $)) {
                         const existingStyle = $(child).attr('style') || '';
                         $(child).attr('style', mergeStyles(existingStyle, styles));
                       }
@@ -292,7 +292,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
                   } else {
                     // 其他情况
                     $(parent).find('*').each((_, child) => {
-                      if (selectorMatchesElement(childSelector, child, $)) {
+                      if ('tagName' in child && selectorMatchesElement(childSelector, child as Element, $)) {
                         const existingStyle = $(child).attr('style') || '';
                         $(child).attr('style', mergeStyles(existingStyle, styles));
                       }
@@ -307,7 +307,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
                 if (tagName) {
                   // 查找所有匹配的元素
                   niceSection.find(tagName).each((_, element) => {
-                    if (selectorMatchesElement(finalSelector, element, $)) {
+                    if ('tagName' in element && selectorMatchesElement(finalSelector, element as Element, $)) {
                       const existingStyle = $(element).attr('style') || '';
                       $(element).attr('style', mergeStyles(existingStyle, styles));
                     }
@@ -317,7 +317,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
                   if (finalSelector.startsWith('.')) {
                     const classVal = finalSelector.substring(1).split(':')[0];
                     niceSection.find(`.${classVal}`).each((_, element) => {
-                      if (selectorMatchesElement(finalSelector, element, $)) {
+                      if ('tagName' in element && selectorMatchesElement(finalSelector, element as Element, $)) {
                         const existingStyle = $(element).attr('style') || '';
                         $(element).attr('style', mergeStyles(existingStyle, styles));
                       }
@@ -349,15 +349,17 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
       // ID 选择器
       const idVal = cleanSelector.substring(1).split('.')[0].split(':')[0];
       const element = $(`#${idVal}`)[0];
-      if (element && selectorMatchesElement(cleanSelector, element, $)) {
-        candidates.push(element);
+      // 检查是否是 Element 类型
+      if (element && 'tagName' in element && selectorMatchesElement(cleanSelector, element as Element, $)) {
+        candidates.push(element as Element);
       }
     } else if (cleanSelector.startsWith('.')) {
       // Class 选择器
       const classVal = cleanSelector.substring(1).split(':')[0];
       $(`.${classVal}`).each((_, element) => {
-        if (selectorMatchesElement(cleanSelector, element, $)) {
-          candidates.push(element);
+        // 检查是否是 Element 类型
+        if ('tagName' in element && selectorMatchesElement(cleanSelector, element as Element, $)) {
+          candidates.push(element as Element);
         }
       });
     } else {
@@ -367,15 +369,17 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
       
       if (tagName) {
         $(tagName).each((_, element) => {
-          if (selectorMatchesElement(cleanSelector, element, $)) {
-            candidates.push(element);
+          // 检查是否是 Element 类型
+          if ('tagName' in element && selectorMatchesElement(cleanSelector, element as Element, $)) {
+            candidates.push(element as Element);
           }
         });
       } else {
         // 没有标签，可能是纯 class 或 id（前面已处理）
         $('*').each((_, element) => {
-          if (selectorMatchesElement(cleanSelector, element, $)) {
-            candidates.push(element);
+          // 检查是否是 Element 类型
+          if ('tagName' in element && selectorMatchesElement(cleanSelector, element as Element, $)) {
+            candidates.push(element as Element);
           }
         });
       }
