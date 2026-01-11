@@ -7,6 +7,8 @@ import markdown
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Dict, List
+from mdnice_transform import transform_to_mdnice_format
+from mdnice_inline_styles import apply_inline_styles
 
 app = FastAPI(title="Markdown to WeChat Converter")
 
@@ -131,18 +133,19 @@ async def convert_markdown(request: MarkdownRequest):
 
         html_content = md.convert(request.markdown)
 
+        # 转换为 mdnice 格式
+        html_content = transform_to_mdnice_format(f'<div id="nice">{html_content}</div>')
+
         # 获取主题样式
         theme_style = get_theme_style(theme_name)
         custom_css = get_custom_css(theme_name)
+        
+        # 将 CSS 样式内联到元素上
+        combined_css = f"{theme_style}\n{custom_css}"
+        html_content = apply_inline_styles(html_content, combined_css)
 
-        # 组合完整的HTML
-        full_html = f"""<div id="nice">
-{html_content}
-</div>
-<style>
-{theme_style}
-{custom_css}
-</style>"""
+        # 组合完整的HTML（不再需要 style 标签，样式已内联）
+        full_html = html_content
 
         return JSONResponse(
             {

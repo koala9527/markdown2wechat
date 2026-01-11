@@ -5,6 +5,8 @@ import {
   getDefaultThemeName,
   getThemeStyle,
 } from "../../../lib/theme";
+import { transformToMdniceFormat } from "../../../lib/mdnice-transform";
+import { applyInlineStyles } from "../../../lib/mdnice-inline-styles";
 
 const md = new MarkdownIt({
   html: true,
@@ -29,18 +31,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const htmlContent = md.render(markdown);
+    let htmlContent = md.render(markdown);
 
+    // 转换为 mdnice 格式
+    htmlContent = transformToMdniceFormat(`<div id="nice">${htmlContent}</div>`);
+
+    // 获取主题样式
     const themeStyle = getThemeStyle(themeName);
     const customCss = getCustomCss(themeName);
+    
+    // 将 CSS 样式内联到元素上
+    const combinedCss = `${themeStyle}\n${customCss}`;
+    htmlContent = applyInlineStyles(htmlContent, combinedCss);
 
-    const fullHtml = `<div id="nice">
-${htmlContent}
-</div>
-<style>
-${themeStyle}
-${customCss}
-</style>`;
+    // 组合完整的HTML（不再需要 style 标签，样式已内联）
+    const fullHtml = htmlContent;
 
     return NextResponse.json({
       success: true,
