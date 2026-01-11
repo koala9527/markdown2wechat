@@ -13,7 +13,11 @@ export function transformToMdniceFormat(htmlContent: string): string {
     /<div\s+id=["']nice["']([^>]*)>/gi,
     '<section id="nice" data-tool="mdnice编辑器" data-website="https://www.mdnice.com"$1>'
   );
+  // 替换所有 </div> 为 </section>（在 section#nice 的情况下）
+  // 使用更精确的匹配，确保只替换对应的结束标签
   result = result.replace(/<\/div>\s*(?=<style>)/gi, '</section>');
+  // 也替换最后的 </div>
+  result = result.replace(/<\/div>\s*$/gi, '</section>');
   
   // 2. 处理标题（h1-h6）- 添加 prefix/content/suffix 结构
   for (let level = 1; level <= 6; level++) {

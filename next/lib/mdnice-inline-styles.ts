@@ -43,7 +43,7 @@ function parseCssRules(cssText: string): CssRule[] {
 }
 
 /**
- * 合并两个样式字符串
+ * 合并两个样式字符串，去重相同的 CSS 属性
  */
 function mergeStyles(existing: string, newStyles: string): string {
   if (!existing) {
@@ -53,8 +53,37 @@ function mergeStyles(existing: string, newStyles: string): string {
     return existing;
   }
   
-  // 简单的合并：追加新样式
-  return `${existing}; ${newStyles}`;
+  // 解析现有样式为对象
+  const existingProps: Record<string, string> = {};
+  existing.split(';').forEach(prop => {
+    const trimmed = prop.trim();
+    if (trimmed) {
+      const colonIndex = trimmed.indexOf(':');
+      if (colonIndex > 0) {
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
+        existingProps[key] = value;
+      }
+    }
+  });
+  
+  // 解析新样式并覆盖现有属性
+  newStyles.split(';').forEach(prop => {
+    const trimmed = prop.trim();
+    if (trimmed) {
+      const colonIndex = trimmed.indexOf(':');
+      if (colonIndex > 0) {
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
+        existingProps[key] = value; // 新样式覆盖旧样式
+      }
+    }
+  });
+  
+  // 重新组合样式字符串
+  return Object.entries(existingProps)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('; ');
 }
 
 /**
@@ -211,10 +240,13 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
         );
       }
       
-      // 处理 code.hljs 或 pre.custom code
-      if (finalSelector.includes('code') || finalSelector.includes('code.hljs')) {
+      // 处理 pre.custom code（只在 pre.custom 内的 code）
+      // 注意：只处理 #nice pre.custom code，不处理 #nice p code
+      if (finalSelector === 'pre.custom code' || 
+          (finalSelector.includes('pre') && finalSelector.includes('code') && !finalSelector.includes('p'))) {
+        // 只处理在 pre.custom 内的 code.hljs，避免影响行内代码
         result = result.replace(
-          /<code\s+class=["'][^"']*hljs[^"']*["']([^>]*)>/gi,
+          /<pre[^>]*class=["'][^"']*custom[^"']*["'][^>]*>[\s\S]*?<code\s+class=["'][^"']*hljs[^"']*["']([^>]*)>/gi,
           (match, attrs) => {
             if (attrs.includes('style=')) {
               return match.replace(/style=["']([^"']*)["']/, (styleMatch, existingStyle) => {
@@ -225,6 +257,12 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
             }
           }
         );
+      }
+      
+      // 跳过 #nice p code（行内代码），避免影响代码块
+      // 因为正则表达式难以精确区分，暂时跳过行内代码的样式
+      if (finalSelector === 'p code' || (finalSelector.includes('p') && finalSelector.includes('code'))) {
+        continue;
       }
       
       // 处理 h1 .content, h2 .content 等
@@ -284,6 +322,12 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
   
   // 替换所有 <br/> 为 <br>（与 target.html 保持一致）
   result = result.replace(/<br\/>/g, '<br>');
+  
+  // 修复最后的 </div> 为 </section>（如果存在）
+  result = result.replace(/<\/div>\s*$/, '</section>');
+  
+  // 清理双分号
+  result = result.replace(/;;+/g, ';');
   
   return result;
 }
