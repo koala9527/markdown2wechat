@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import MarkdownIt from "markdown-it";
+import hljs from "highlight.js";
 import {
   getCustomCss,
   getDefaultThemeName,
@@ -12,6 +13,23 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   breaks: false,
+  highlight: function (str: string, lang: string) {
+    // 如果指定了语言且 highlight.js 支持该语言，则进行语法高亮
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        // highlight.js 会返回高亮后的 HTML，包含 <span class="hljs-*"> 标签
+        const highlighted = hljs.highlight(str, { language: lang }).value;
+        // markdown-it 的 highlight 函数只需要返回 <code> 标签内的内容
+        // markdown-it 会自动添加 <pre><code> 标签
+        return highlighted;
+      } catch (err) {
+        // 如果高亮失败，返回默认的转义代码
+      }
+    }
+    // 如果没有指定语言或不支持，返回默认的转义代码
+    // markdown-it 会自动添加 <pre><code> 标签
+    return md.utils.escapeHtml(str);
+  },
 });
 
 export async function POST(req: NextRequest) {
