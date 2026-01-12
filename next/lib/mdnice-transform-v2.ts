@@ -9,6 +9,7 @@
  */
 
 import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
 
 export function transformToMdniceFormat(htmlContent: string): string {
   // 重要：在解析之前，先验证代码块是否正确闭合
@@ -193,10 +194,62 @@ export function transformToMdniceFormat(htmlContent: string): string {
       return;
     }
     
+    // 检查内容是否为空或只有空白字符
+    // 使用 text() 获取纯文本内容，检查是否有实际内容
+    const textContent = $li.text().trim();
+    // 也检查是否有子元素（如 <p>、<strong> 等）
+    const hasChildren = $li.children().length > 0;
+    // 检查 HTML 内容（去除空白后）
+    const htmlContent = ($li.html() || '').trim();
+    
+    // 如果内容为空（没有文本、没有子元素、HTML 为空），跳过处理
+    if (!textContent && !hasChildren && !htmlContent) {
+      // 不创建空的 section，直接返回
+      return;
+    }
+    
     // 用 section 包裹内容
     const content = $li.html() || '';
     const $section = $('<section>').html(content);
     $li.empty().append($section);
+  });
+  
+  // 4.1 移除所有空的 section 标签（避免在微信公众号中显示空白）
+  // 注意：需要先收集要移除的元素，然后统一移除，避免在遍历时修改 DOM
+  const emptySections: Element[] = [];
+  $('section').each((_, element) => {
+    const $section = $(element);
+    const textContent = $section.text().trim();
+    const hasChildren = $section.children().length > 0;
+    const htmlContent = ($section.html() || '').trim();
+    
+    // 如果 section 为空（没有文本、没有子元素、HTML 为空），标记为移除
+    if (!textContent && !hasChildren && !htmlContent) {
+      emptySections.push(element);
+    }
+  });
+  // 统一移除空的 section
+  emptySections.forEach(section => {
+    $(section).remove();
+  });
+  
+  // 4.2 移除空的列表项（如果列表项中只有空的 section 或完全为空）
+  // 注意：需要先收集要移除的元素，然后统一移除
+  const emptyListItems: Element[] = [];
+  $('li').each((_, element) => {
+    const $li = $(element);
+    const textContent = $li.text().trim();
+    const hasChildren = $li.children().length > 0;
+    const htmlContent = ($li.html() || '').trim();
+    
+    // 如果列表项为空（没有文本、没有子元素、HTML 为空），标记为移除
+    if (!textContent && !hasChildren && !htmlContent) {
+      emptyListItems.push(element);
+    }
+  });
+  // 统一移除空的列表项
+  emptyListItems.forEach(li => {
+    $(li).remove();
   });
 
   // 5. 为其他元素添加 data-tool 属性

@@ -111,6 +111,10 @@ export async function POST(req: NextRequest) {
       }
       return match;
     });
+    
+    // 清理 markdown-it 可能生成的空列表项（在转换前处理）
+    // 移除完全为空的列表项：<li></li> 或 <li> </li>（只有空白字符）
+    htmlContent = htmlContent.replace(/<li[^>]*>\s*<\/li>/gi, '');
 
     // 转换为 mdnice 格式
     htmlContent = transformToMdniceFormat(`<div id="nice">${htmlContent}</div>`);
