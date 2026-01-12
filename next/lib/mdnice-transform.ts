@@ -116,23 +116,80 @@ export function transformToMdniceFormat(htmlContent: string): string {
       }
       
       // 处理代码内容：将换行转换为 <br>，空格转换为 &nbsp;
+      // 注意：如果代码内容中已经有 HTML 标签（如语法高亮标签），需要保护它们
       let processedCodeContent = codeContent;
-      // 按行处理，每行的前导空格转换为 &nbsp;
-      const lines = processedCodeContent.split('\n');
-      const processedLines = lines.map((line: string) => {
-        // 计算前导空格数
-        const leadingSpaces = line.length - line.trimStart().length;
-        if (leadingSpaces > 0) {
-          // 前导空格转换为 &nbsp;
-          return '&nbsp;'.repeat(leadingSpaces) + line.substring(leadingSpaces);
-        }
-        return line;
-      });
       
-      // 重新组合，行间用 <br> 连接
-      processedCodeContent = processedLines.join('<br>');
-      // 行内的其他空格也转换为 &nbsp;
-      processedCodeContent = processedCodeContent.replace(/ /g, '&nbsp;');
+      // 检查是否包含 HTML 标签（语法高亮）
+      const hasHtmlTags = /<[^>]+>/.test(processedCodeContent);
+      
+      if (hasHtmlTags) {
+        // 如果已经有 HTML 标签，需要更小心地处理
+        // 使用临时标记保护 HTML 标签
+        const tagPlaceholders: string[] = [];
+        let tagIndex = 0;
+        
+        // 用占位符替换所有 HTML 标签
+        processedCodeContent = processedCodeContent.replace(/<[^>]+>/g, (match: string) => {
+          const placeholder = `__TAG_${tagIndex}__`;
+          tagPlaceholders[tagIndex] = match;
+          tagIndex++;
+          return placeholder;
+        });
+        
+        // 现在处理纯文本部分：将换行转换为 <br>，空格转换为 &nbsp;
+        const lines = processedCodeContent.split('\n');
+        const processedLines = lines.map((line: string) => {
+          // 计算前导空格数（但跳过占位符）
+          let leadingSpaces = 0;
+          for (let i = 0; i < line.length; i++) {
+            if (line[i] === ' ') {
+              leadingSpaces++;
+            } else if (line.substring(i).startsWith('__TAG_')) {
+              // 跳过占位符
+              const match = line.substring(i).match(/^__TAG_\d+__/);
+              if (match) {
+                i += match[0].length - 1;
+                continue;
+              }
+            } else {
+              break;
+            }
+          }
+          
+          if (leadingSpaces > 0) {
+            // 前导空格转换为 &nbsp;
+            return '&nbsp;'.repeat(leadingSpaces) + line.substring(leadingSpaces);
+          }
+          return line;
+        });
+        
+        // 重新组合，行间用 <br> 连接
+        processedCodeContent = processedLines.join('<br>');
+        // 行内的其他空格也转换为 &nbsp;（但不在占位符内）
+        processedCodeContent = processedCodeContent.replace(/ /g, '&nbsp;');
+        
+        // 恢复 HTML 标签
+        tagPlaceholders.forEach((tag, index) => {
+          processedCodeContent = processedCodeContent.replace(`__TAG_${index}__`, tag);
+        });
+      } else {
+        // 如果没有 HTML 标签，使用原来的简单处理方式
+        const lines = processedCodeContent.split('\n');
+        const processedLines = lines.map((line: string) => {
+          // 计算前导空格数
+          const leadingSpaces = line.length - line.trimStart().length;
+          if (leadingSpaces > 0) {
+            // 前导空格转换为 &nbsp;
+            return '&nbsp;'.repeat(leadingSpaces) + line.substring(leadingSpaces);
+          }
+          return line;
+        });
+        
+        // 重新组合，行间用 <br> 连接
+        processedCodeContent = processedLines.join('<br>');
+        // 行内的其他空格也转换为 &nbsp;
+        processedCodeContent = processedCodeContent.replace(/ /g, '&nbsp;');
+      }
       
       // 添加顶部装饰条（注意：不要添加 line-height，与 target.html 保持一致）
       const decoratorSpan = '<span style="display: block; background: url(https://files.mdnice.com/user/3441/876cad08-0422-409d-bb5a-08afec5da8ee.svg); height: 30px; width: 100%; background-size: 40px; background-repeat: no-repeat; background-color: #282c34; margin-bottom: -7px; border-radius: 5px; background-position: 10px 10px;"></span>';

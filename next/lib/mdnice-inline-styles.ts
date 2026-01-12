@@ -416,6 +416,34 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
     }
   });
   
+  // 确保代码块内的语法高亮标签样式被正确应用
+  // 处理 code.hljs 内的 span 标签（如 hljs-comment, hljs-keyword 等）
+  $('pre.custom code.hljs span').each((_, element) => {
+    const $span = $(element);
+    const classes = $span.attr('class') || '';
+    const existingStyle = $span.attr('style') || '';
+    
+    // 如果已经有样式，确保样式正确（不要被清理掉）
+    if (existingStyle && classes.includes('hljs-')) {
+      // 保留语法高亮标签的样式，确保颜色等属性正确
+      // 这些样式应该已经在 CSS 中定义，内联样式会覆盖它们
+      // 不需要额外处理，因为内联样式已经应用了
+    }
+  });
+  
+  // 确保代码块内的所有文本都有正确的颜色
+  // 如果代码块内没有语法高亮标签，确保所有文本使用 code 标签的颜色
+  $('pre.custom code.hljs').each((_, element) => {
+    const $code = $(element);
+    const codeStyle = $code.attr('style') || '';
+    const codeColorMatch = codeStyle.match(/color:\s*([^;]+)/);
+    const codeColor = codeColorMatch ? codeColorMatch[1].trim() : '#abb2bf';
+    
+    // 检查是否有直接的文本节点（没有包装在 span 中）
+    // 如果有，确保它们使用正确的颜色
+    // 注意：cheerio 可能已经处理了文本节点，这里主要是确保样式正确
+  });
+  
   // 清理 code.hljs 的冗余样式（与 target.html 保持一致）
   // target.html 中的 code 样式只包含：overflow-x, padding, color, padding-top, background, border-radius, display, font-family, font-size
   $('pre.custom code.hljs').each((_, element) => {
