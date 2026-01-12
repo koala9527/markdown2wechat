@@ -474,24 +474,41 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
 
   // 修复列表项格式：将列表项压缩到同一行（与 target.html 保持一致）
   // 匹配 <ol> 或 <ul> 标签及其内容，将 <li> 之间的换行和空格移除
-  // 使用递归方式处理嵌套列表
-  result = result.replace(
-    /(<(?:ol|ul)[^>]*>)([\s\S]*?)(<\/(?:ol|ul)>)/gi,
-    (match, openTag, content, closeTag) => {
-      // 移除 <li> 之间的换行和空格，但保留 <li> 标签本身
-      // 先移除 </li> 和 <li> 之间的所有空白字符（包括换行、空格、制表符等）
-      let compressedContent = content
-        .replace(/\s*<\/li>\s*<li>/gi, '</li><li>')  // 移除 </li> 和 <li> 之间的空白
-        .trim();                                      // 移除首尾空白
-      
-      // 确保第一个 <li> 前没有多余空白
-      compressedContent = compressedContent.replace(/^\s*<li>/gi, '<li>');
-      // 确保最后一个 </li> 后没有多余空白
-      compressedContent = compressedContent.replace(/<\/li>\s*$/gi, '</li>');
-      
-      return `${openTag}${compressedContent}${closeTag}`;
-    }
-  );
+  // 需要处理嵌套列表，所以使用非贪婪匹配和递归处理
+  function compressListItems(html: string): string {
+    // 先处理最内层的列表，再处理外层
+    return html.replace(
+      /(<(?:ol|ul)[^>]*>)([\s\S]*?)(<\/(?:ol|ul)>)/gi,
+      (match, openTag, content, closeTag) => {
+        // 递归处理嵌套列表
+        const processedContent = compressListItems(content);
+        
+        // 移除所有 <li> 之间的空白字符（换行、空格、制表符等）
+        // 但保留 <li> 标签内的内容不变
+        let compressed = processedContent
+          // 移除 </li> 和 <li> 之间的所有空白（包括换行）
+          .replace(/\s*<\/li>\s*<li>/gi, '</li><li>')
+          // 移除 <ol> 或 <ul> 后的第一个 <li> 前的空白
+          .replace(/^\s*<li>/gi, '<li>')
+          // 移除最后一个 </li> 后的空白
+          .replace(/<\/li>\s*$/gi, '</li>')
+          // 移除所有其他多余的空白字符
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        // 如果内容为空，保持原样
+        if (!compressed) {
+          return match;
+        }
+        
+        // 返回压缩后的列表（所有 <li> 在同一行）
+        return `${openTag}${compressed}${closeTag}`;
+      }
+    );
+  }
+  
+  // 应用列表压缩
+  result = compressListItems(result);
 
   return result;
 }
