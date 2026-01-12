@@ -455,6 +455,43 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
     }
     return match; // 无法修复，保留原样
   });
+
+  // 修复错误的 color 值（如 color: 14px, color: 12px 等数字值，应该是颜色值）
+  // 匹配 color: 数字px 或 color: 数字 的模式（但不是 rgb/rgba/hex 等有效颜色值）
+  result = result.replace(/color:\s*(\d+)(px|em|rem|%)?[^;]*;/gi, (match, num, unit) => {
+    // 移除错误的 color 属性（数字值不是有效的颜色值）
+    return '';
+  });
   
+  // 清理可能产生的双分号（由于移除了 color 属性）
+  result = result.replace(/;;+/g, ';');
+  
+  // 清理样式字符串开头和结尾的分号
+  result = result.replace(/style=["']([^"']*);+["']/g, (match, styleContent) => {
+    const cleaned = styleContent.replace(/^;+|;+$/g, '').replace(/;;+/g, ';');
+    return `style="${cleaned}"`;
+  });
+
+  // 修复列表项格式：将列表项压缩到同一行（与 target.html 保持一致）
+  // 匹配 <ol> 或 <ul> 标签及其内容，将 <li> 之间的换行和空格移除
+  // 使用递归方式处理嵌套列表
+  result = result.replace(
+    /(<(?:ol|ul)[^>]*>)([\s\S]*?)(<\/(?:ol|ul)>)/gi,
+    (match, openTag, content, closeTag) => {
+      // 移除 <li> 之间的换行和空格，但保留 <li> 标签本身
+      // 先移除 </li> 和 <li> 之间的所有空白字符（包括换行、空格、制表符等）
+      let compressedContent = content
+        .replace(/\s*<\/li>\s*<li>/gi, '</li><li>')  // 移除 </li> 和 <li> 之间的空白
+        .trim();                                      // 移除首尾空白
+      
+      // 确保第一个 <li> 前没有多余空白
+      compressedContent = compressedContent.replace(/^\s*<li>/gi, '<li>');
+      // 确保最后一个 </li> 后没有多余空白
+      compressedContent = compressedContent.replace(/<\/li>\s*$/gi, '</li>');
+      
+      return `${openTag}${compressedContent}${closeTag}`;
+    }
+  );
+
   return result;
 }
