@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import MarkdownIt from "markdown-it";
-import hljs from "highlight.js";
+// @ts-ignore - highlight.js 可能没有完整的类型定义
+import * as hljs from "highlight.js";
 import {
   getCustomCss,
   getDefaultThemeName,
@@ -9,6 +10,17 @@ import {
 import { transformToMdniceFormat } from "../../../lib/mdnice-transform";
 import { applyInlineStyles } from "../../../lib/mdnice-inline-styles";
 
+// 简单的 HTML 转义函数
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// 创建 markdown-it 实例，配置语法高亮
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -28,7 +40,7 @@ const md = new MarkdownIt({
     }
     // 如果没有指定语言或不支持，返回默认的转义代码
     // markdown-it 会自动添加 <pre><code> 标签
-    return md.utils.escapeHtml(str);
+    return escapeHtml(str);
   },
 });
 
