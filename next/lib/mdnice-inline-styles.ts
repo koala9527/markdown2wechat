@@ -503,6 +503,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
   // 清理 code.hljs 的冗余样式（与 target.html 保持一致）
   // target.html 中的 code 样式只包含：overflow-x, padding, color, padding-top, background, border-radius, display, font-family, font-size
   // 注意：color 必须明确设置为 #abb2bf，不能被全局样式覆盖
+  // 注意：padding-top 必须明确设置为 15px，不能被错误的值覆盖
   $('pre.custom code.hljs').each((_, element) => {
     const $code = $(element);
     const style = $code.attr('style') || '';
@@ -533,12 +534,14 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
       }
     });
     
-    // 确保 color 是正确的值（不能被全局样式覆盖）
-    // 如果 color 是黑色或白色，强制设置为正确的颜色
-    const currentColor = styleObj['color'] || '';
-    if (!currentColor || currentColor === 'rgb(0, 0, 0)' || currentColor === '#000' || currentColor === 'black' ||
-        currentColor === 'rgb(255, 255, 255)' || currentColor === '#fff' || currentColor === 'white') {
-      styleObj['color'] = '#abb2bf';
+    // 强制确保 color 是正确的值（不能被全局样式覆盖）
+    // 无论现有值是什么，都强制设置为 #abb2bf
+    styleObj['color'] = '#abb2bf';
+    
+    // 强制确保 padding-top 是正确的值（不能被错误的值覆盖）
+    // 如果 padding-top 不是 15px，强制设置为 15px
+    if (styleObj['padding-top'] !== '15px') {
+      styleObj['padding-top'] = '15px';
     }
     
     // 重新组合样式（按 target.html 的顺序）
@@ -546,8 +549,8 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
     const cleanedStyle = [
       `overflow-x: ${styleObj['overflow-x'] || 'auto'}`,
       `padding: ${styleObj['padding'] || '16px'}`,
-      `color: ${styleObj['color'] || '#abb2bf'}`,
-      `padding-top: ${styleObj['padding-top'] || '15px'}`,
+      `color: ${styleObj['color']}`,
+      `padding-top: ${styleObj['padding-top']}`,
       `background: ${styleObj['background'] || '#282c34'}`,
       `border-radius: ${styleObj['border-radius'] || '5px'}`,
       `display: ${styleObj['display'] || '-webkit-box'}`,
