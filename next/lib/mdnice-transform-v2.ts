@@ -105,14 +105,20 @@ export function transformToMdniceFormat(htmlContent: string): string {
     
     // 重要：检查 <pre> 标签是否包含后续的 HTML 标签（说明解析错误）
     // 如果 <pre> 的内容包含了 <h3>、<ol>、<ul> 等标签，说明代码块没有正确闭合
+    // 注意：这个检查已经在 route.ts 中进行了，但这里作为双重保险
     const preHtml = $pre.html() || '';
-    if (preHtml.match(/<(h[1-6]|ol|ul|table|blockquote|hr)[\s>]/i)) {
-      console.warn('警告：代码块可能包含后续内容，尝试修复...');
+    if (preHtml.match(/<(h[1-6]|ol|ul|table|blockquote|hr|p)[\s>]/i)) {
       // 尝试找到第一个 </code> 标签，只保留到那里
       const codeEndIndex = preHtml.indexOf('</code>');
       if (codeEndIndex > 0) {
         const validContent = preHtml.substring(0, codeEndIndex + 7); // 7 是 '</code>' 的长度
         $pre.html(validContent);
+      } else {
+        // 如果没有找到 </code> 标签，说明这个 <pre> 标签可能有问题，尝试提取纯文本
+        const textContent = $pre.text();
+        $pre.empty();
+        const $newCode = $('<code>').addClass('hljs').text(textContent);
+        $pre.append($newCode);
       }
     }
     

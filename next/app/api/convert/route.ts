@@ -95,15 +95,22 @@ export async function POST(req: NextRequest) {
 
     let htmlContent = md.render(markdown);
     
-    // 调试：检查代码块是否正确解析
-    // 如果代码块数量异常，可能是解析问题
-    const preMatches = htmlContent.match(/<pre[^>]*>/g);
-    const codeMatches = htmlContent.match(/<code[^>]*>/g);
-    
-    // 如果代码块数量不匹配，可能是解析问题
-    if (preMatches && codeMatches && preMatches.length !== codeMatches.length) {
-      console.warn(`警告：代码块数量不匹配 - pre: ${preMatches.length}, code: ${codeMatches.length}`);
-    }
+    // 重要：修复 markdown-it 可能解析错误的代码块
+    // 如果 <pre> 标签包含了后续的 HTML 标签（如 <h3>、<ol>、<ul> 等），说明代码块没有正确闭合
+    // 我们需要找到第一个 </code> 标签，只保留到那里的内容
+    htmlContent = htmlContent.replace(/(<pre[^>]*>)([\s\S]*?)(<\/pre>)/gi, (match, preOpen, preContent, preClose) => {
+      // 检查 <pre> 内容中是否包含不应该在代码块中的 HTML 标签
+      if (preContent.match(/<(h[1-6]|ol|ul|table|blockquote|hr|p)[\s>]/i)) {
+        // 找到第一个 </code> 标签的位置
+        const codeEndIndex = preContent.indexOf('</code>');
+        if (codeEndIndex > 0) {
+          // 只保留到第一个 </code> 标签的内容
+          const validContent = preContent.substring(0, codeEndIndex + 7); // 7 是 '</code>' 的长度
+          return preOpen + validContent + preClose;
+        }
+      }
+      return match;
+    });
 
     // 转换为 mdnice 格式
     htmlContent = transformToMdniceFormat(`<div id="nice">${htmlContent}</div>`);
