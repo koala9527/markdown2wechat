@@ -11,7 +11,7 @@ import {
   getDefaultThemeName,
   getThemeStyle,
 } from "../../../lib/theme";
-import { transformToMdniceFormat } from "../../../lib/mdnice-transform";
+import { transformToMdniceFormat } from "../../../lib/mdnice-transform-v2";
 import { applyInlineStyles } from "../../../lib/mdnice-inline-styles";
 
 // 简单的 HTML 转义函数
