@@ -474,35 +474,44 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
 
   // 修复列表项格式：将列表项压缩到同一行（与 target.html 保持一致）
   // 匹配 <ol> 或 <ul> 标签及其内容，将 <li> 之间的换行和空格移除
-  // 需要处理嵌套列表，所以使用非贪婪匹配和递归处理
+  // 需要处理嵌套列表，所以使用递归处理
   function compressListItems(html: string): string {
     // 先处理最内层的列表，再处理外层
     return html.replace(
       /(<(?:ol|ul)[^>]*>)([\s\S]*?)(<\/(?:ol|ul)>)/gi,
       (match, openTag, content, closeTag) => {
         // 递归处理嵌套列表
-        const processedContent = compressListItems(content);
+        let processedContent = compressListItems(content);
+        
+        // 保存第一个 <li> 前的缩进（如果有的话）
+        const firstLiMatch = processedContent.match(/^(\s*)<li>/i);
+        const indent = firstLiMatch ? firstLiMatch[1] : '';
         
         // 移除所有 <li> 之间的空白字符（换行、空格、制表符等）
         // 但保留 <li> 标签内的内容不变
-        let compressed = processedContent
-          // 移除 </li> 和 <li> 之间的所有空白（包括换行）
-          .replace(/\s*<\/li>\s*<li>/gi, '</li><li>')
-          // 移除 <ol> 或 <ul> 后的第一个 <li> 前的空白
-          .replace(/^\s*<li>/gi, '<li>')
-          // 移除最后一个 </li> 后的空白
-          .replace(/<\/li>\s*$/gi, '</li>')
-          // 移除所有其他多余的空白字符
-          .replace(/\s+/g, ' ')
-          .trim();
+        // 关键：只移除 </li> 和 <li> 之间的空白，不触碰标签内部
+        
+        // 第一步：移除 </li> 和 <li> 之间的所有空白（包括换行）
+        processedContent = processedContent.replace(/\s*<\/li>\s*<li>/gi, '</li><li>');
+        
+        // 第二步：移除第一个 <li> 前的所有空白（包括换行），但稍后会恢复缩进
+        processedContent = processedContent.replace(/^\s*<li>/gi, '<li>');
+        
+        // 第三步：移除最后一个 </li> 后的所有空白（包括换行）
+        processedContent = processedContent.replace(/<\/li>\s*$/gi, '</li>');
         
         // 如果内容为空，保持原样
-        if (!compressed) {
+        if (!processedContent.trim()) {
           return match;
         }
         
-        // 返回压缩后的列表（所有 <li> 在同一行）
-        return `${openTag}${compressed}${closeTag}`;
+        // 恢复第一个 <li> 前的缩进（如果有的话）
+        if (indent && processedContent.startsWith('<li>')) {
+          processedContent = indent + processedContent;
+        }
+        
+        // 返回压缩后的列表（所有 <li> 在同一行，没有换行）
+        return `${openTag}${processedContent}${closeTag}`;
       }
     );
   }
