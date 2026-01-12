@@ -119,6 +119,21 @@ export function transformToMdniceFormat(htmlContent: string): string {
       // 注意：如果代码内容中已经有 HTML 标签（如语法高亮标签），需要保护它们
       let processedCodeContent = codeContent;
       
+      // 首先处理转义字符：将字符串字面量的转义字符转换为实际字符
+      // 例如：\n -> 实际换行符，\t -> 制表符，\\ -> 反斜杠
+      // 注意：需要小心处理，避免破坏已有的 HTML 标签
+      processedCodeContent = processedCodeContent
+        // 先处理双反斜杠（转义的反斜杠），避免后续处理时误判
+        .replace(/\\\\/g, '\u0001__BACKSLASH__\u0001')
+        // 将 \n 转换为实际换行符
+        .replace(/\\n/g, '\n')
+        // 将 \t 转换为制表符（或空格）
+        .replace(/\\t/g, '    ') // 4个空格代替制表符
+        // 将 \r 转换为回车符（通常与 \n 一起使用）
+        .replace(/\\r/g, '')
+        // 恢复转义的反斜杠
+        .replace(/\u0001__BACKSLASH__\u0001/g, '\\');
+      
       // 检查是否包含 HTML 标签（语法高亮）
       const hasHtmlTags = /<[^>]+>/.test(processedCodeContent);
       
