@@ -512,19 +512,23 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
     const styleObj: Record<string, string> = {};
     
     // 解析现有样式
-    style.split(';').forEach(prop => {
-      const trimmed = prop.trim();
+    // 注意：需要处理可能存在的多个相同属性（后面的会覆盖前面的）
+    const styleParts = style.split(';');
+    for (let i = styleParts.length - 1; i >= 0; i--) {
+      const trimmed = styleParts[i].trim();
       if (trimmed) {
         const colonIndex = trimmed.indexOf(':');
         if (colonIndex > 0) {
-          const key = trimmed.substring(0, colonIndex).trim();
+          const key = trimmed.substring(0, colonIndex).trim().toLowerCase();
           const value = trimmed.substring(colonIndex + 1).trim();
-          // 只保留需要的属性
-          if (neededProps.some(needed => key.includes(needed))) {
+          // 只保留需要的属性（从后往前处理，后面的值会覆盖前面的）
+          if (neededProps.some(needed => key.includes(needed.toLowerCase()))) {
             // 对于 padding，需要特殊处理（target.html 中是 padding: 16px）
             if (key === 'padding-top') {
-              styleObj['padding-top'] = value;
-            } else if (key === 'padding' && !styleObj['padding-top']) {
+              if (!styleObj['padding-top']) {
+                styleObj['padding-top'] = value;
+              }
+            } else if (key === 'padding' && !styleObj['padding'] && !styleObj['padding-top']) {
               styleObj['padding'] = value;
             } else if (!styleObj[key]) {
               styleObj[key] = value;
@@ -532,7 +536,7 @@ export function applyInlineStyles(htmlContent: string, cssText: string): string 
           }
         }
       }
-    });
+    }
     
     // 强制确保 color 是正确的值（不能被全局样式覆盖）
     // 无论现有值是什么，都强制设置为 #abb2bf
