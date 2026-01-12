@@ -11,6 +11,20 @@
 import * as cheerio from 'cheerio';
 
 export function transformToMdniceFormat(htmlContent: string): string {
+  // 重要：在解析之前，先验证代码块是否正确闭合
+  // 检查是否有未闭合的 <pre> 或 <code> 标签
+  const preMatches = htmlContent.match(/<pre[^>]*>/gi) || [];
+  const preCloseMatches = htmlContent.match(/<\/pre>/gi) || [];
+  const codeMatches = htmlContent.match(/<code[^>]*>/gi) || [];
+  const codeCloseMatches = htmlContent.match(/<\/code>/gi) || [];
+  
+  if (preMatches.length !== preCloseMatches.length) {
+    console.warn(`警告：<pre> 标签数量不匹配 - 开始: ${preMatches.length}, 结束: ${preCloseMatches.length}`);
+  }
+  if (codeMatches.length !== codeCloseMatches.length) {
+    console.warn(`警告：<code> 标签数量不匹配 - 开始: ${codeMatches.length}, 结束: ${codeCloseMatches.length}`);
+  }
+  
   const $ = cheerio.load(htmlContent);
 
   // 1. 转换外层容器 <div id="nice"> -> <section id="nice" data-tool="mdnice编辑器" data-website="https://www.mdnice.com">
@@ -79,12 +93,27 @@ export function transformToMdniceFormat(htmlContent: string): string {
 
   // 3. 处理代码块 - 转换为 pre.custom 格式
   // 重要：只处理 <pre> 标签内的内容，不要包含外部内容
-  $('pre').each((_, element) => {
+  // 先获取所有 <pre> 标签，确保它们都是独立的
+  const $allPre = $('pre');
+  $allPre.each((_, element) => {
     const $pre = $(element);
     
     // 如果已经是 custom，跳过
     if ($pre.hasClass('custom')) {
       return;
+    }
+    
+    // 重要：检查 <pre> 标签是否包含后续的 HTML 标签（说明解析错误）
+    // 如果 <pre> 的内容包含了 <h3>、<ol>、<ul> 等标签，说明代码块没有正确闭合
+    const preHtml = $pre.html() || '';
+    if (preHtml.match(/<(h[1-6]|ol|ul|table|blockquote|hr)[\s>]/i)) {
+      console.warn('警告：代码块可能包含后续内容，尝试修复...');
+      // 尝试找到第一个 </code> 标签，只保留到那里
+      const codeEndIndex = preHtml.indexOf('</code>');
+      if (codeEndIndex > 0) {
+        const validContent = preHtml.substring(0, codeEndIndex + 7); // 7 是 '</code>' 的长度
+        $pre.html(validContent);
+      }
     }
     
     // 添加 custom 类
@@ -199,16 +228,26 @@ export function transformToMdniceFormat(htmlContent: string): string {
   }
   
   // 修复 cheerio 可能转义的 HTML 实体（在代码块中）
-  // 注意：只在 <code> 标签内修复，避免影响其他内容
-  result = result.replace(/(<code[^>]*>)([\s\S]*?)(<\/code>)/gi, (match, openTag, content, closeTag) => {
-    // 修复被转义的 &nbsp; 和 <br>
-    let fixedContent = content
-      .replace(/&amp;nbsp;/g, '&nbsp;')
-      .replace(/&amp;lt;br&amp;gt;/g, '<br>')
-      .replace(/&lt;br&gt;/g, '<br>')
-      .replace(/&amp;#39;/g, "'")
-      .replace(/&amp;quot;/g, '"');
-    return openTag + fixedContent + closeTag;
+  // 注意：只在 <pre><code> 标签内修复，避免影响其他内容
+  // 使用更精确的匹配，确保只匹配 <pre> 内的 <code> 标签
+  // 先找到所有 <pre> 标签，然后处理其中的 <code> 标签
+  result = result.replace(/(<pre[^>]*>)([\s\S]*?)(<\/pre>)/gi, (match, preOpen, preContent, preClose) => {
+    // 在 <pre> 内容中查找 <code> 标签
+    const codeMatch = preContent.match(/(<code[^>]*>)([\s\S]*?)(<\/code>)/i);
+    if (codeMatch) {
+      const [, codeOpen, codeContent, codeClose] = codeMatch;
+      // 修复被转义的 &nbsp; 和 <br>（只在代码内容中）
+      let fixedCodeContent = codeContent
+        .replace(/&amp;nbsp;/g, '&nbsp;')
+        .replace(/&amp;lt;br&amp;gt;/g, '<br>')
+        .replace(/&lt;br&gt;/g, '<br>')
+        .replace(/&amp;#39;/g, "'")
+        .replace(/&amp;quot;/g, '"');
+      // 替换 <pre> 内容中的 <code> 部分
+      const fixedPreContent = preContent.replace(/(<code[^>]*>)([\s\S]*?)(<\/code>)/i, codeOpen + fixedCodeContent + codeClose);
+      return preOpen + fixedPreContent + preClose;
+    }
+    return match;
   });
   
   // 替换 <br/> 为 <br>
