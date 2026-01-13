@@ -116,7 +116,7 @@ export function transformToMdniceFormat(htmlContent: string): string {
       if (foundInvalidAfterCode) {
         // 代码块包含了后续内容，需要修复
         // 只保留到第一个 code 标签结束的内容
-        const $codeClone = $firstCode.clone();
+        const $codeClone = $firstCode.clone(true); // 深度克隆，包括所有内容
         // 清空 <pre>，只保留 <code> 标签
         $pre.empty();
         $pre.append($codeClone);
@@ -149,9 +149,12 @@ export function transformToMdniceFormat(htmlContent: string): string {
       const $codeAny = $pre.find('code').first();
       if ($codeAny.length === 0) {
         // 如果完全没有 code 标签，创建一个
-        const codeText = $pre.text();
+        // 重要：使用 html() 而不是 text()，以保留所有内容（包括可能的 HTML 标签）
+        const codeHtml = $pre.html() || $pre.text();
         $pre.empty();
-        const $newCode = $('<code>').addClass('hljs').text(codeText);
+        const $newCode = $('<code>').addClass('hljs');
+        // 先设置 HTML 内容，然后再处理
+        $newCode.html(codeHtml);
         $pre.append($newCode);
         processCodeContent($newCode);
       } else {
@@ -183,6 +186,7 @@ export function transformToMdniceFormat(htmlContent: string): string {
       $code.attr('style', cleanedStyle ? `${cleanedStyle}; ${defaultCodeStyle}` : defaultCodeStyle);
       
       // 处理代码内容（只处理 <code> 标签内的内容）
+      // 重要：在处理之前，确保代码内容被正确包含在 <code> 标签内
       processCodeContent($code);
       
       // 添加顶部装饰条
@@ -388,10 +392,11 @@ export function transformToMdniceFormat(htmlContent: string): string {
 function processCodeContent($code: cheerio.Cheerio<any>): void {
   // 重要：只处理 <code> 标签内的直接内容
   // 获取代码的原始 HTML 内容（可能包含语法高亮标签）
-  const originalHtml = $code.html() || '';
+  // 使用 html() 而不是 text()，以保留所有内容（包括 HTML 标签和特殊字符）
+  let originalHtml = $code.html() || '';
   
   // 如果 originalHtml 为空，尝试获取文本内容
-  if (!originalHtml) {
+  if (!originalHtml || originalHtml.trim() === '') {
     const text = $code.text();
     if (text) {
       const processed = processCodeText(text);
@@ -400,74 +405,78 @@ function processCodeContent($code: cheerio.Cheerio<any>): void {
     return;
   }
   
+  // 重要：检查代码内容是否被正确转义
+  // 如果代码中包含未转义的 < 或 >，可能会导致解析错误
+  // 但 markdown-it 应该已经转义了这些字符（< -> &lt;, > -> &gt;）
+  
   // 检查是否包含 HTML 标签（语法高亮）
-  const hasHtmlTags = originalHtml.includes('<') && originalHtml.includes('>');
+  // 注意：我们需要区分真正的 HTML 标签和转义的字符（&lt; 和 &gt;）
+  const hasHtmlTags = originalHtml.includes('<') && originalHtml.includes('>') && 
+                      !originalHtml.includes('&lt;') && !originalHtml.includes('&gt;');
   
   if (hasHtmlTags) {
     // 如果已经有 HTML 标签（语法高亮），需要保护它们
-    // 使用更简单的方法：直接处理 HTML 字符串
-    // 分割 HTML 标签和文本，分别处理
-    const parts: Array<{ type: 'text' | 'tag'; content: string }> = [];
-    let lastIndex = 0;
-    let inTag = false;
-    let tagStart = -1;
+    // 使用 cheerio 来解析，这样可以正确处理嵌套的 HTML 标签
+    const $temp = cheerio.load(originalHtml, null, false);
     
-    for (let i = 0; i < originalHtml.length; i++) {
-      if (originalHtml[i] === '<') {
-        if (!inTag) {
-          // 添加标签前的文本
-          if (i > lastIndex) {
-            const text = originalHtml.substring(lastIndex, i);
-            if (text) {
-              parts.push({ type: 'text', content: text });
-            }
+    // 递归处理所有文本节点
+    function processTextNodes($element: cheerio.Cheerio<any>): void {
+      $element.contents().each((_, node: any) => {
+        if (node.type === 'text') {
+          const text = node.data || '';
+          if (text) {
+            // 处理文本：将换行转换为 <br>，空格转换为 &nbsp;
+            const processed = processCodeText(text);
+            // 将处理后的文本（可能包含 <br> 和 &nbsp;）插入到 DOM 中
+            // 注意：cheerio 会自动转义 HTML，所以我们需要直接操作节点
+            node.data = processed;
           }
-          inTag = true;
-          tagStart = i;
+        } else if (node.type === 'tag') {
+          // 递归处理子节点
+          processTextNodes($temp(node));
         }
-      } else if (originalHtml[i] === '>') {
-        if (inTag) {
-          // 添加标签
-          const tag = originalHtml.substring(tagStart, i + 1);
-          parts.push({ type: 'tag', content: tag });
-          lastIndex = i + 1;
-          inTag = false;
-        }
-      }
+      });
     }
     
-    // 添加剩余的文本
-    if (lastIndex < originalHtml.length) {
-      const text = originalHtml.substring(lastIndex);
-      if (text) {
-        parts.push({ type: 'text', content: text });
-      }
-    }
+    processTextNodes($temp.root());
     
-    // 处理文本部分：将换行转换为 <br>，空格转换为 &nbsp;
-    // 但保持 HTML 标签不变
-    const processedParts = parts.map(part => {
-      if (part.type === 'tag') {
-        return part.content; // 保持标签不变
-      } else {
-        // 处理文本：将换行转换为 <br>，空格转换为 &nbsp;
-        return processCodeText(part.content);
-      }
-    });
-    
-    // 重新组合
-    const processedHtml = processedParts.join('');
-    
-    // 直接设置 HTML
-    $code.html(processedHtml);
+    // 获取处理后的 HTML
+    originalHtml = $temp.html() || originalHtml;
   } else {
     // 如果没有 HTML 标签，直接处理文本
-    const text = $code.text();
+    // 但需要先检查是否有转义的字符
+    // 如果有转义的字符（&lt;、&gt;），我们需要先解码，然后处理，再编码
+    let text = originalHtml;
+    
+    // 解码转义的字符（但保留 &nbsp; 等）
+    text = text.split('&lt;').join('<');
+    text = text.split('&gt;').join('>');
+    text = text.split('&amp;').join('&');
+    
+    // 处理文本
     const processed = processCodeText(text);
     
-    // 直接设置 HTML 内容（包含 <br> 和 &nbsp;）
-    $code.html(processed);
+    // 重新编码特殊字符（但保留 <br> 和 &nbsp;）
+    let finalHtml = processed;
+    // 将 < 和 > 转义（但保留 <br> 标签）
+    finalHtml = finalHtml.split('<br>').join('__BR_TAG__');
+    finalHtml = finalHtml.split('<').join('&lt;');
+    finalHtml = finalHtml.split('>').join('&gt;');
+    finalHtml = finalHtml.split('__BR_TAG__').join('<br>');
+    // 将 & 转义（但保留 &nbsp;、&lt;、&gt;）
+    finalHtml = finalHtml.split('&nbsp;').join('__NBSP__');
+    finalHtml = finalHtml.split('&lt;').join('__LT__');
+    finalHtml = finalHtml.split('&gt;').join('__GT__');
+    finalHtml = finalHtml.split('&').join('&amp;');
+    finalHtml = finalHtml.split('__NBSP__').join('&nbsp;');
+    finalHtml = finalHtml.split('__LT__').join('&lt;');
+    finalHtml = finalHtml.split('__GT__').join('&gt;');
+    
+    originalHtml = finalHtml;
   }
+  
+  // 直接设置 HTML 内容
+  $code.html(originalHtml);
 }
 
 /**
