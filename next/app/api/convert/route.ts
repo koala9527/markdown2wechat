@@ -100,70 +100,9 @@ export async function POST(req: NextRequest) {
     }
 
     let htmlContent = md.render(markdown);
-    
-    // 重要：修复 markdown-it 可能解析错误的代码块
-    // 使用 DOM 操作而不是正则表达式
-    const cheerio = require('cheerio');
-    const $ = cheerio.load(htmlContent);
-    
-    // 检查并修复所有 <pre> 标签
-    $('pre').each((_: number, element: any) => {
-      const $pre = $(element);
-      const $firstCode = $pre.find('code').first();
-      const $invalidElements = $pre.find('h1, h2, h3, h4, h5, h6, ol, ul, table, blockquote, hr, p');
-      
-      if ($invalidElements.length > 0 && $firstCode.length > 0) {
-        // 检查第一个无效元素是否在第一个 code 标签之后
-        let foundInvalidAfterCode = false;
-        let foundCode = false;
-        
-        // 遍历所有子节点
-        $pre.contents().each((_: number, node: any) => {
-          if (node === $firstCode[0]) {
-            foundCode = true;
-          } else if (foundCode && node.type === 'tag') {
-            const tagName = (node as any).tagName?.toLowerCase();
-            if (tagName && ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ol', 'ul', 'table', 'blockquote', 'hr', 'p'].includes(tagName)) {
-              foundInvalidAfterCode = true;
-              return false; // 中断遍历
-            }
-          }
-        });
-        
-        if (foundInvalidAfterCode) {
-          // 代码块包含了后续内容，需要修复
-          // 只保留到第一个 code 标签结束的内容
-          const $codeClone = $firstCode.clone();
-          // 清空 <pre>，只保留 <code> 标签
-          $pre.empty();
-          $pre.append($codeClone);
-        }
-      }
-    });
-    
-    // 清理 markdown-it 可能生成的空列表项（使用 DOM 操作）
-    $('li').each((_: number, element: any) => {
-      const $li = $(element);
-      const textContent = $li.text().trim();
-      const htmlContent = ($li.html() || '').trim();
-      
-      // 如果列表项为空（没有文本、HTML 为空），移除它
-      if (!textContent && !htmlContent) {
-        $li.remove();
-      }
-    });
-    
-    htmlContent = $.html();
-    
-    // 修复 cheerio 可能添加的额外标签
-    if (htmlContent.includes('<html>')) {
-      const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-      if (bodyMatch) {
-        htmlContent = bodyMatch[1];
-      }
-    }
 
     // 转换为 mdnice 格式
+    // 注意：代码块修复逻辑已在 transformToMdniceFormat 函数内部处理
     htmlContent = transformToMdniceFormat(`<div id="nice">${htmlContent}</div>`);
 
     // 获取主题样式

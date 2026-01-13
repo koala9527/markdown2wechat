@@ -15,8 +15,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # 加载项目根目录下的 .env
 load_dotenv(PROJECT_ROOT / ".env")
 
-# 主题保存目录（相对于项目根目录）
-THEME_DIR = PROJECT_ROOT / "theme"
+# 主题保存目录（保存到 next/theme 目录）
+THEME_DIR = PROJECT_ROOT / "next" / "theme"
 THEME_DIR.mkdir(parents=True, exist_ok=True)
 
 MDNICE_AUTH = os.environ.get("MDNICE_AUTH", "")      # 从 .env 读取 Authorization

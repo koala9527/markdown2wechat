@@ -1,129 +1,107 @@
-# Markdown转公众号格式工具
+# Markdown 转微信公众号格式工具
 
-这是一个基于FastAPI的Markdown转微信公众号格式的转换工具，支持实时预览和多主题配置（自动拉取 mdnice 主题）。
+一个基于 Next.js 的 Markdown 转微信公众号格式的转换工具。
 
-## 功能特点
+![](static/image.png)
 
-- ✅ 实时预览：左侧编辑Markdown，右侧实时显示转换效果
-- ✅ 主题配置：使用theme文件夹的主题配置文件自定义样式
-- ✅ 响应式设计：支持拖拽调整左右面板大小
-- ✅ 防抖优化：输入防抖，减少不必要的API调用
+## ⚠️ 重要说明
 
-## 项目效果与体验
+**为了效果的稳定性，项目优先保证 Next.js 框架的 API 接口在微信公众号内的渲染效果，不保证网页预览的效果。**
 
-![项目效果预览](static/image.png)
+- ✅ **默认主题**：使用「兰青」主题，所有调试和测试均以此主题为准
+- ⚠️ **其他主题**：尚未完整测试，可能存在格式转换问题
+- 🔧 **已知问题**：部分格式转换存在小问题，我们会积极处理
 
-**在线体验地址**：[`https://md2wechat.not404.net/`](https://md2wechat.not404.net/)  
-该地址基于本项目 `next` 目录下的 Next.js 版本部署在 Vercel 上，功能和效果与 FastAPI 版本保持一致。
+## 🚀 快速开始
 
-**本地运行**：启动后访问 `http://localhost:8000`
+### Vercel 一键部署（推荐）
 
-## 安装依赖
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=YOUR_REPO_URL)
 
-### 使用 uv
+1. 点击上方按钮，将项目克隆到你的 Vercel 账户
+2. 进入 `next` 目录，Vercel 会自动识别 Next.js 项目
+3. 部署完成后即可使用
 
-[uv](https://github.com/astral-sh/uv) 是一个极快的 Python 包管理器和项目管理工具。
-
-#### 安装 uv
-
-**Windows (PowerShell):**
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-**macOS/Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-#### 使用 uv 安装依赖
+### 本地开发
 
 ```bash
-# 方式1：使用pyproject.toml
-uv sync
-
-# 方式2：使用requirements.txt
-uv pip install -r requirements.txt
-
-# 方式3：创建虚拟环境后安装
-uv venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-uv pip install -r requirements.txt
+cd next
+npm install
+npm run dev
 ```
 
-#### 使用 uv 运行项目
+访问 `http://localhost:3000` 查看效果。
 
-```bash
-# 直接运行（uv会自动管理虚拟环境）
-uv run python main.py
-
-# 或者使用uvicorn
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 使用 pip
-
-```bash
-pip install -r requirements.txt
-```
-
-## 运行项目
-
-### 使用 uv
-
-```bash
-uv run python main.py
-```
-
-或使用uvicorn：
-
-```bash
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 使用 pip
-
-```bash
-python main.py
-```
-
-或使用uvicorn：
-
-```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-## 项目结构
+## 📁 项目结构
 
 ```
 markdown2wechat/
-├── main.py             # FastAPI 主程序
-├── next/               # 本项目的 Next.js 复刻版，功能与 FastAPI 版本一致，可直接部署到 Vercel
-│   ├── app/            # Next.js App Router 页面与 API 路由
-│   ├── lib/            # Next.js 端的主题读取工具（只读取 next/theme 下的主题）
-│   └── theme/          # Next.js 使用的主题 JSON（可与根目录 theme 复用一份拷贝）
-├── pyproject.toml      # 项目配置（uv 使用）
-├── requirements.txt    # Python 依赖（pip 使用）
-├── Dockerfile          # Docker 镜像构建文件
-├── docker-compose.yml  # Docker Compose 配置
-├── theme/              # FastAPI 版本使用的 mdnice 主题（每个主题一个 json）
-├── spider/             # 主题爬虫脚本目录
-│   └── spider.py       # 从 mdnice 拉取所有主题的脚本
-├── templates/          # HTML 模板目录
-│   └── index.html      # 前端页面
-└── static/             # 静态文件目录（如示例截图等）
+├── next/                    # Next.js 主项目
+│   ├── app/                 # Next.js App Router
+│   │   ├── api/            # API 路由
+│   │   │   ├── convert/    # Markdown 转换接口
+│   │   │   └── themes/     # 主题列表接口
+│   │   ├── page.tsx        # 前端页面
+│   │   └── layout.tsx      # 布局组件
+│   ├── lib/                # 工具函数
+│   │   ├── mdnice-transform-new.ts  # HTML 格式转换
+│   │   ├── mdnice-inline-styles.ts  # 样式内联
+│   │   └── theme.ts        # 主题管理
+│   └── theme/              # 主题配置文件目录
+│       ├── 兰青.json       # 默认主题（已测试）
+│       └── ...             # 其他主题（未完整测试）
+└── spider/                 # 主题爬虫脚本
+    └── spider.py           # 从 mdnice 拉取主题配置
 ```
 
-## API接口
+## 🎨 主题管理
+
+### 更新主题配置
+
+项目支持从 mdnice 批量拉取所有公开主题。
+
+#### 1. 配置授权信息
+
+在项目根目录创建 `.env` 文件：
+
+```env
+MDNICE_AUTH=Bearer xxx.yyy.zzz
+```
+
+> 从浏览器开发者工具中复制 mdnice 网站的 Authorization 请求头
+
+#### 2. 运行爬虫脚本
+
+```bash
+# 安装依赖
+pip install requests python-dotenv
+
+# 运行爬虫
+python spider/spider.py
+```
+
+脚本会自动：
+- 从 mdnice API 获取所有主题列表
+- 下载每个主题的配置到 `next/theme/` 目录
+- 生成 `主题名.json` 文件
+
+#### 3. 使用主题
+
+- **默认主题**：系统会自动使用「兰青」主题
+- **切换主题**：通过 API 的 `theme` 参数指定主题名称
+- **主题测试**：目前仅「兰青」主题经过完整测试，其他主题可能存在格式问题
+
+## 🔌 API 接口
 
 ### POST /api/convert
-转换Markdown为公众号格式HTML（支持按主题名称切换样式）。
+
+转换 Markdown 为微信公众号格式 HTML。
 
 **请求体：**
 ```json
 {
   "markdown": "# 标题\n\n这是内容",
-  "theme": "山吹"    // 可选，主题名称，不传则使用默认主题
+  "theme": "兰青"  // 可选，默认使用「兰青」主题
 }
 ```
 
@@ -131,135 +109,101 @@ markdown2wechat/
 ```json
 {
   "success": true,
-  "html": "<div id=\"nice\">...</div><style>...</style>",
-  "style": "...",       // 主题的 style 字段
-  "customCss": "...",   // 主题的自定义 CSS（customStyle.customCss）
-  "theme": "山吹"       // 实际使用的主题名称
+  "html": "<section id=\"nice\">...</section>",
+  "style": "...",
+  "customCss": "...",
+  "theme": "兰青"
 }
 ```
-
-### GET /api/theme
-获取某个主题的完整配置（不传 theme 参数时返回默认主题）。
 
 ### GET /api/themes
-列出所有可用主题名称和默认主题。
 
-## 使用说明
+获取所有可用主题列表。
 
-1. 在左侧编辑器中输入Markdown内容
-2. 右侧会自动显示转换后的公众号格式效果
-3. 右上角下拉框可以切换不同主题（来自 mdnice 抓取的主题）
-4. 可以拖拽中间的分隔线调整左右面板大小
-5. 所有样式都基于 `theme/` 目录下的主题配置文件（爬虫脚本生成）
-6. 右上角「一键复制HTML」可以直接复制当前预览 HTML，粘贴到公众号后台
-
-## 主题更新与管理
-
-本项目支持从 mdnice 批量拉取所有公开主题，并在前端下拉框中切换预览。
-
-### 1. 配置授权信息（.env）
-
-在项目根目录创建 `.env` 文件，内容类似：
-
-```env
-MDNICE_AUTH=Bearer xxx.yyy.zzz      # 必填，从浏览器复制 mdnice 的 Authorization 头
-```
-
-> `.env` 已加入 `.gitignore`，不会被提交到仓库。
-
-### 2. 运行爬虫脚本抓取主题
-
-在项目根目录执行：
-
-```bash
-# 使用 uv
-uv run python spider/spider.py
-
-# 或使用系统 Python
-python spider/spider.py
-```
-
-脚本行为：
-
-- 调用 `https://api.mdnice.com/themes?pageSize=100&currentPage=1` 获取所有主题列表
-- 对每个主题调用 `https://api.mdnice.com/articles/styles` 获取样式配置
-- 将返回结果保存到 `theme/主题名.json`（文件名是主题的 name，已做文件名合法化）
-- 对于返回 `文章不存在` 等错误的主题会打印警告并跳过，不影响其它主题抓取
-
-抓取完成后，你会在 `theme/` 目录下看到多个以主题名命名的 json 文件，例如：
-
-```text
-theme/
-├── 山吹.json
-├── WeFormat.json
-├── ...
-```
-
-### 3. 后端如何使用这些主题
-
-`main.py` 会从 `theme/` 目录中自动读取主题：
-
-- **默认主题**：`theme/` 中排序后的第一个文件（去掉 `.json` 后缀的名字）
-- `/api/themes`：返回所有主题名称和默认主题名
-- `/api/theme?theme=山吹`：返回指定主题的完整配置 JSON
-- `/api/convert`：请求体中可选字段 `theme` 指定主题；不传时使用默认主题
-
-例如：
-
+**响应：**
 ```json
-POST /api/convert
 {
-  "markdown": "# 标题\\n\\n这是内容",
-  "theme": "山吹"
+  "success": true,
+  "themes": ["兰青", "山吹", "WeFormat", ...],
+  "defaultTheme": "兰青"
 }
 ```
 
-后端会读取 `theme/山吹.json` 生成样式，并在响应中返回带样式的 HTML。
+## 🤖 n8n 工作流集成
 
-### 4. 前端如何使用这些主题
+### 开发背景
 
-- 页面加载时，前端会调用 `GET /api/themes` 加载所有主题，并填充右上角的下拉框
-- 默认选中接口返回的 `defaultTheme`
-- 每次你切换下拉框中的主题名，前端都会携带对应的 `theme` 字段重新调用 `/api/convert`
-- 预览区域实时展示不同主题下的公众号排版效果
+最近在折腾自动化内容产出，发现微信公众号的排版和发布流程非常割裂。虽然 [mdnice](https://www.mdnice.com/) 很好用，但它没有官方 API，很难集成到自动化流程里。
 
-## Docker 部署
+因此，本项目应运而生：通过提供标准的 REST API，可以轻松集成到 n8n 等自动化工作流平台，实现 Markdown 到微信公众号格式的自动化转换。
 
-### 使用 Docker Compose
+### 工作流模板
 
-**手动启动：**
+如需获取 n8n 工作流模板配置，请关注 **《AIGC挖掘机》** 公众号获取最新模板。
+
+### 工作流效果示例
+
+
+![](static/n8n.png)
+
+
+
+## ⚙️ 技术栈
+
+- **框架**: Next.js 14
+- **Markdown 解析**: markdown-it
+- **语法高亮**: highlight.js
+- **HTML 处理**: cheerio
+- **部署平台**: Vercel
+
+## 📝 使用说明
+
+1. 在左侧编辑器中输入 Markdown 内容
+2. 右侧会显示转换后的效果
+3. 右上角可以切换主题
+4. 点击「一键复制HTML」复制转换后的 HTML
+5. 将 HTML 粘贴到微信公众号后台进行发布
+
+## ⚠️ 注意事项
+
+1. **主题选择**：目前仅「兰青」主题经过完整测试，其他主题可能存在格式问题
+2. **预览效果**：网页预览效果仅供参考，实际效果以微信公众号内为准
+3. **格式问题**：部分复杂格式可能存在转换问题，我们会持续优化
+4. **API 稳定性**：优先保证 API 接口的稳定性，网页预览功能可能不稳定
+
+## 🔧 开发说明
+
+### 本地开发环境
+
 ```bash
-# 构建并启动服务
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-
-# 停止服务
-docker-compose down
-
-# 重新构建并启动
-docker-compose up -d --build
+cd next
+npm install
+npm run dev
 ```
 
-### 使用 Docker
+### 构建生产版本
 
 ```bash
-# 构建镜像
-docker build -t markdown2wechat .
-
-# 运行容器
-docker run -d -p 8000:8000 --name markdown2wechat markdown2wechat
+cd next
+npm run build
+npm start
 ```
 
-访问地址：http://localhost:8000
+### 主题调试
 
-## 技术栈
+- 所有主题配置文件位于 `next/theme/` 目录
+- 默认主题为「兰青」，在 `next/lib/theme.ts` 中配置
+- 修改主题后需要重启开发服务器
 
-- **后端**: FastAPI
-- **前端**: 原生HTML/CSS/JavaScript
-- **Markdown解析**: python-markdown
-- **主题配置**: JSON格式的CSS样式配置
-- **包管理**: uv 或 pip
-- **容器化**: Docker + Docker Compose
+## 📄 许可证
 
+MIT License
+
+## 🙏 致谢
+
+- 感谢 [mdnice](https://www.mdnice.com/) 提供的主题配置
+- 感谢所有贡献者的支持
+
+---
+
+**提示**：如有问题或建议，欢迎提交 Issue 或 Pull Request。
