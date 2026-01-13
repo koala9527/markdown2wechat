@@ -116,7 +116,7 @@ export function transformToMdniceFormat(htmlContent: string): string {
       if (foundInvalidAfterCode) {
         // 代码块包含了后续内容，需要修复
         // 只保留到第一个 code 标签结束的内容
-        const $codeClone = $firstCode.clone(true); // 深度克隆，包括所有内容
+        const $codeClone = $firstCode.clone(); // cheerio 的 clone() 默认就是深度克隆
         // 清空 <pre>，只保留 <code> 标签
         $pre.empty();
         $pre.append($codeClone);
