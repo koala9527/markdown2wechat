@@ -93,7 +93,7 @@ export function transformToMdniceFormat(htmlContent: string): string {
     }
   });
 
-  // 4. 处理列表项：用 <section> 包裹内容
+  // 4. 处理列表项：用 <section> 包裹内容，并清理空项
   $("li").each((_, element) => {
     const $li = $(element);
     const $section = $li.find("section").first();
@@ -106,19 +106,33 @@ export function transformToMdniceFormat(htmlContent: string): string {
       }
     }
 
-    // 清理空的 section 和 li
+    // 清理空的 section
     $li.find("section").each((_, sectionEl) => {
-      const $section = $(sectionEl);
-      if (!$section.text().trim() && !$section.html()?.trim()) {
-        $section.remove();
+      const $sectionEl = $(sectionEl);
+      const sectionText = $sectionEl.text().trim();
+      const sectionHtml = ($sectionEl.html() || "").trim();
+      const sectionHtmlStripped = sectionHtml
+        .replace(/<br\s*\/?>/gi, "")
+        .replace(/&nbsp;/gi, "")
+        .replace(/\s+/g, "");
+
+      if (!sectionText && !sectionHtmlStripped) {
+        $sectionEl.remove();
       }
     });
   });
 
-  // 清理空的 li
+  // 清理空的 li（包括只包含 <br> 或 &nbsp; 的情况）
   $("li").each((_, element) => {
     const $li = $(element);
-    if (!$li.text().trim() && !$li.html()?.trim()) {
+    const text = $li.text().trim();
+    const html = ($li.html() || "").trim();
+    const htmlStripped = html
+      .replace(/<br\s*\/?>/gi, "")
+      .replace(/&nbsp;/gi, "")
+      .replace(/\s+/g, "");
+
+    if (!text && !htmlStripped) {
       $li.remove();
     }
   });
