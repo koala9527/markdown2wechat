@@ -34,18 +34,13 @@ const md = new MarkdownIt({
     // 这样可以避免某些语言格式导致的解析问题
     const normalizedLang = lang ? 'bash' : '';
     
-    // 重要：在 markdown-it 解析代码块时，str 参数中的内容已经是解析后的文本
-    // 字面量的 \n（在 markdown 源码中写的是 \n）会被 markdown-it 转换为实际的换行符
-    // 但我们需要保留字面量的 \n，所以需要特殊处理
-    
     // 如果指定了语言，尝试进行语法高亮
     if (normalizedLang && hljsInstance) {
       try {
         // highlight.js 11.x 的 API
-        // 尝试使用 highlight 方法
         let result: any = null;
         
-        // 方法1: 直接调用 highlight (highlight.js 11.x)
+        // 方法1: 使用新的 API (highlight.js 11.x+)
         if (typeof hljsInstance.highlight === "function") {
           try {
             result = hljsInstance.highlight(str, { language: normalizedLang });
@@ -54,7 +49,7 @@ const md = new MarkdownIt({
           }
         }
         
-        // 方法2: 如果方法1失败，尝试使用旧的 API
+        // 方法2: 如果方法1失败，尝试使用旧的 API (highlight.js 10.x)
         if (!result && typeof hljsInstance.highlight === "function") {
           try {
             result = hljsInstance.highlight(normalizedLang, str);
@@ -68,11 +63,12 @@ const md = new MarkdownIt({
           // markdown-it 的 highlight 函数只需要返回 <code> 标签内的内容
           // markdown-it 会自动添加 <pre><code> 标签
           // highlight.js 的输出已经包含了 HTML 标签（如 <span class="hljs-comment">）
-          // 这些标签中的文本节点需要后续处理（空格转 &nbsp;，换行转 <br>）
+          // 这些标签会被后续的 processCodeContent 正确处理（保留结构，只处理文本节点）
           return result.value;
         }
       } catch (err) {
         // 如果高亮失败，返回默认的转义代码
+        console.warn('代码高亮失败:', err);
       }
     }
     

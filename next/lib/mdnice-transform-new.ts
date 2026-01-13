@@ -2,10 +2,13 @@ import * as cheerio from "cheerio";
 
 /**
  * 将 HTML 转换为 mdnice 编辑器格式
- * 使用 DOM 操作而不是正则表达式，确保更可靠的转换
+ * 参考官方示例：Markdown _ 让排版变 Nice.html
+ * 确保代码高亮正常工作
  */
 export function transformToMdniceFormat(htmlContent: string): string {
-  const $ = cheerio.load(htmlContent);
+  const $ = cheerio.load(htmlContent, {
+    xml: false,
+  });
 
   // 1. 转换容器：<div id="nice"> -> <section id="nice" data-tool="mdnice编辑器" data-website="https://www.mdnice.com">
   $("#nice").each((_, element) => {
@@ -26,21 +29,21 @@ export function transformToMdniceFormat(htmlContent: string): string {
   // 2. 处理标题：添加 prefix, content, suffix 结构
   $("h1, h2, h3, h4, h5, h6").each((_, element) => {
     const $heading = $(element);
-    const text = $heading.text();
     const existingPrefix = $heading.find(".prefix");
     const existingContent = $heading.find(".content");
     const existingSuffix = $heading.find(".suffix");
 
     if (existingPrefix.length === 0 && existingContent.length === 0 && existingSuffix.length === 0) {
+      const text = $heading.text();
       $heading.empty();
-      $heading.append('<span class="prefix" style="display: none;"></span>');
+      $heading.append('<span class="prefix"></span>');
       $heading.append(`<span class="content">${text}</span>`);
-      $heading.append('<span class="suffix" style="display: none;"></span>');
+      $heading.append('<span class="suffix"></span>');
     }
     $heading.attr("data-tool", "mdnice编辑器");
   });
 
-  // 3. 处理代码块
+  // 3. 处理代码块 - 关键：保留 highlight.js 生成的 HTML 结构
   $("pre").each((_, element) => {
     const $pre = $(element);
     const $firstCode = $pre.find("code").first();
@@ -64,7 +67,6 @@ export function transformToMdniceFormat(htmlContent: string): string {
 
     if (foundInvalidAfterCode && $firstCode.length > 0) {
       // 代码块包含了后续内容，需要修复
-      // 只保留到第一个 code 标签结束的内容
       const $codeClone = $firstCode.clone();
       $pre.empty();
       $pre.append($codeClone);
@@ -77,15 +79,7 @@ export function transformToMdniceFormat(htmlContent: string): string {
     // 确保 code 元素有 hljs 类
     $pre.find("code").addClass("hljs");
 
-    // 设置代码块的默认样式
-    if (!$pre.attr("style")) {
-      $pre.attr(
-        "style",
-        "border-radius: 5px; box-shadow: rgba(0, 0, 0, 0.55) 0px 2px 10px; text-align: left; margin-top: 10px; margin-bottom: 10px; margin-left: 0px; margin-right: 0px; padding-top: 0px; padding-bottom: 0px; padding-left: 0px; padding-right: 0px;"
-      );
-    }
-
-    // 处理代码内容：处理换行、空格、特殊字符
+    // 处理代码内容：保留 highlight.js 的 HTML 结构，只处理文本节点
     $pre.find("code").each((_, codeElement) => {
       processCodeContent($(codeElement));
     });
@@ -140,25 +134,11 @@ export function transformToMdniceFormat(htmlContent: string): string {
   // 6. 格式化列表：移除多余的空白
   $("ol, ul").each((_, element) => {
     const $list = $(element);
-    // 移除紧跟在 <ol>/<ul> 后的空白
     const html = $list.html() || "";
     $list.html(html.replace(/^\s+/, "").replace(/>\s+</g, "><"));
   });
 
-  // 7. 修复 HTML 实体（在代码块中）
-  $("code").each((_, element) => {
-    const $code = $(element);
-    let html = $code.html() || "";
-    // 修复双重转义的实体
-    html = html.replace(/&amp;nbsp;/g, "&nbsp;");
-    html = html.replace(/&amp;lt;br&amp;gt;/g, "<br>");
-    html = html.replace(/&lt;br&gt;/g, "<br>");
-    html = html.replace(/&amp;#39;/g, "'");
-    html = html.replace(/&amp;quot;/g, '"');
-    $code.html(html);
-  });
-
-  // 8. 统一 <br/> 为 <br>
+  // 7. 统一 <br/> 为 <br>
   $("br").each((_, element) => {
     const $br = $(element);
     if ($br[0].tagName.toLowerCase() === "br") {
@@ -189,48 +169,71 @@ export function transformToMdniceFormat(htmlContent: string): string {
 
 /**
  * 处理代码块内容
- * 处理换行、空格、特殊字符
+ * 关键：保留 highlight.js 生成的 HTML 标签结构，只处理纯文本节点
  */
 function processCodeContent($code: cheerio.Cheerio<any>): void {
   const originalHtml = $code.html() || "";
 
   // 如果代码块包含 HTML 标签（语法高亮），需要递归处理文本节点
   if (originalHtml.includes("<")) {
-    // 重新加载以处理嵌套的 HTML
-    const $temp = cheerio.load(originalHtml);
-    processTextNodes($temp.root()[0], $temp);
-    $code.html($temp.html());
+    // 重新加载以处理嵌套的 HTML，但保留所有标签
+    const $temp = cheerio.load(originalHtml, {
+      xml: false,
+    });
+
+    // 递归处理所有文本节点
+    processTextNodesRecursive($temp.root()[0], $temp);
+
+    // 获取处理后的 HTML
+    const processedHtml = $temp.html();
+    $code.html(processedHtml);
   } else {
     // 纯文本，直接处理
     const processed = processCodeText(originalHtml);
-    $code.text(processed);
+    $code.html(processed);
   }
 }
 
 /**
  * 递归处理文本节点
+ * 只处理纯文本节点，保留所有 HTML 标签
  */
-function processTextNodes(node: any, $: cheerio.CheerioAPI): void {
+function processTextNodesRecursive(node: any, $: cheerio.CheerioAPI): void {
+  if (!node) return;
+
   if (node.type === "text") {
-    const processed = processCodeText(node.data || "");
-    if (processed.includes("<") || processed.includes("&nbsp;")) {
-      // 包含 HTML 标签或实体，需要替换为 HTML
-      const $parent = $(node.parent);
-      if ($parent.length > 0) {
-        const $newNode = cheerio.load(processed);
-        $(node).replaceWith($newNode.root().contents());
-      } else {
-        node.data = processed;
+    // 只处理纯文本节点
+    const text = node.data || "";
+    if (text.trim()) {
+      // 处理文本：换行转 <br>，空格转 &nbsp;
+      const processed = processCodeText(text);
+      
+      // 如果处理后的文本包含 HTML（<br> 或 &nbsp;），需要替换节点
+      if (processed !== text) {
+        // 创建新的节点来替换
+        const $parent = $(node.parent);
+        if ($parent.length > 0) {
+          // 将处理后的文本作为 HTML 插入
+          const $fragment = cheerio.load(processed, { xml: false });
+          const fragmentContents = $fragment.root().contents();
+          
+          // 替换当前文本节点
+          if (fragmentContents.length > 0) {
+            $(node).replaceWith(fragmentContents);
+          } else {
+            node.data = processed;
+          }
+        } else {
+          node.data = processed;
+        }
       }
-    } else {
-      // 纯文本，直接更新
-      node.data = processed;
     }
-  } else if (node.children) {
-    // 递归处理子节点
-    node.children.forEach((child: any) => {
-      processTextNodes(child, $);
-    });
+  } else if (node.children && Array.isArray(node.children)) {
+    // 递归处理子节点（深度优先，从后往前，避免索引问题）
+    const children = [...node.children];
+    for (let i = children.length - 1; i >= 0; i--) {
+      processTextNodesRecursive(children[i], $);
+    }
   }
 }
 
@@ -241,6 +244,8 @@ function processTextNodes(node: any, $: cheerio.CheerioAPI): void {
  * - 字面量的 \n 保持不变（使用占位符）
  */
 function processCodeText(text: string): string {
+  if (!text) return text;
+
   // 先处理字面量的 \n（在 markdown 源码中写的是 \n）
   // 使用占位符保护它们
   const literalNewlinePlaceholder = "___LITERAL_NEWLINE___";
@@ -257,4 +262,3 @@ function processCodeText(text: string): string {
 
   return text;
 }
-
