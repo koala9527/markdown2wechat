@@ -94,19 +94,47 @@ function postProcessStyles($: cheerio.CheerioAPI): void {
     $span.attr("style", style);
   });
 
-  // 确保代码块有正确的默认样式
+  // 确保代码块有正确的默认样式（尽量还原 mdnice 官方效果）
   $("code.hljs").each((_, element) => {
     const $code = $(element);
     let style = $code.attr("style") || "";
 
-    // 如果没有 color，设置默认颜色
-    if (!style.includes("color:")) {
+    // 如果没有背景色，设置暗色背景
+    if (!/background\s*:/.test(style)) {
+      style = `background: #282c34; ${style}`;
+    }
+
+    // 如果没有文字颜色，设置默认文字颜色
+    if (!/color\s*:/.test(style)) {
       style = `color: #abb2bf; ${style}`;
     }
 
-    // 确保有 padding-top
-    if (!style.includes("padding-top:")) {
+    // 统一 padding（如果不存在 padding，则设置 16px）
+    if (!/padding\s*:/.test(style)) {
+      style = `padding: 16px; ${style}`;
+    }
+
+    // 确保有 padding-top（防止被覆盖掉）
+    if (!/padding-top\s*:/.test(style)) {
       style = `padding-top: 15px; ${style}`;
+    }
+
+    // 圆角
+    if (!/border-radius\s*:/.test(style)) {
+      style = `border-radius: 5px; ${style}`;
+    }
+
+    // 横向滚动
+    if (!/overflow-x\s*:/.test(style)) {
+      style = `overflow-x: auto; ${style}`;
+    }
+
+    // 字体与字号（符合 mdnice 的代码风格）
+    if (!/font-family\s*:/.test(style)) {
+      style = `font-family: Consolas, Monaco, Menlo, monospace; ${style}`;
+    }
+    if (!/font-size\s*:/.test(style)) {
+      style = `font-size: 12px; ${style}`;
     }
 
     $code.attr("style", style.trim());
